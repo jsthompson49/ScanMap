@@ -13,20 +13,21 @@ public class QRCodeManager {
 
     private QRCodeDetector qrCodeDetector = new QRCodeDetector();
 
-    public boolean detectQRCodes(final VideoCapture videoCapture, final Consumer<Image> imageConsumer) {
+    public String detectQRCode(final VideoCapture videoCapture, final Consumer<Image> imageConsumer) {
         final Mat image = new Mat();
         boolean readStatus = videoCapture.read(image);
-        System.out.println("ReadStatus=" + readStatus);
+        //System.out.println("ReadStatus=" + readStatus);
         if (readStatus) {
             final Image displayImage = convertImage(image);
             imageConsumer.accept(displayImage);
             final String qrCode = qrCodeDetector.detectAndDecode(image);
-            System.out.println("QRCode=" + qrCode);
-            boolean hasQrCode = (qrCode != null) && !qrCode.isEmpty();
-            return hasQrCode;
+            //System.out.println("QRCode=" + qrCode);
+            return ((qrCode == null) || qrCode.isEmpty()) ? null : qrCode;
+        } else {
+            System.out.println("Read failed");
         }
 
-        return false;
+        return null;
     }
 
     private Image convertImage(final Mat m)

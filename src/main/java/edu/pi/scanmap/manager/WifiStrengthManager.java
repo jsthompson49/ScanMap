@@ -5,16 +5,23 @@ import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.stream.Stream;
 
 public class WifiStrengthManager {
 
     private static final boolean IS_WINDOWS = System.getProperty("os.name").toLowerCase().startsWith("windows");
-    private static final String[] LINE_FILTER = { "SSID", "Signal", "Address" };
+    private static final String[] LINE_FILTER = {"SSID", "Signal", "Address"};
 
-    public void detectAccessPoints() throws Exception {
+    private final ExecutorService threadPool;
 
+    public WifiStrengthManager(final ExecutorService threadPool) {
+        this.threadPool = threadPool;
+    }
+
+    public WifiDetection detectAccessPoints() throws Exception {
+        long start = System.currentTimeMillis();
         ProcessBuilder builder = new ProcessBuilder();
         if (IS_WINDOWS) {
             builder.command("netsh", "wlan", "show", "networks", "mode=bssid");
@@ -24,10 +31,21 @@ public class WifiStrengthManager {
 
         Process process = builder.start();
         final ProcessOutputHandler handler = new ProcessOutputHandler(process.getInputStream(), LINE_FILTER);
-        Executors.newSingleThreadExecutor().submit(handler);
+        threadPool.submit(handler);
         int exitCode = process.waitFor();
-        System.out.println("WIFI Process exit=" + exitCode);
-        System.out.println(parseLines(handler.getOutputLines()));
+        long now = System.currentTimeMillis();
+        System.out.println(
+                String.format("WIFI Process exit=%s duration(ms)=%s", exitCode, now - start));
+
+        final List<WifiStrength> wifiStrengthList = parseLines(handler.getOutputLines());
+        System.out.println(wifiStrengthList);
+
+        if ((exitCode != 0) || (wifiStrengthList.size() == 0)) {
+            return null;
+        }
+
+        return new WifiDetection(now, wifiStrengthList);
+
     }
 
     private List<WifiStrength> parseLines(final List<String> lines) {
@@ -165,6 +183,24 @@ public class WifiStrengthManager {
                     ", address='" + address + '\'' +
                     ", signalStrength=" + signalStrength +
                     '}';
+        }
+    }
+
+    public static class WifiDetection {
+        private final long timestamp;
+        private final List<WifiStrength> wifiStrengthList;
+
+        public WifiDetection(long timestamp, List<WifiStrength> wifiStrengthList) {
+            this.timestamp = timestamp;
+            this.wifiStrengthList = wifiStrengthList;
+        }
+
+        public long getTimestamp() {
+            return timestamp;
+        }
+
+        public List<WifiStrength> getWifiStrengthList() {
+            return wifiStrengthList;
         }
     }
 }
