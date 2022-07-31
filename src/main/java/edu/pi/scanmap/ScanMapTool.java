@@ -1,8 +1,10 @@
 package edu.pi.scanmap;
 
+import main.java.edu.pi.scanmap.manager.MessageManager;
 import main.java.edu.pi.scanmap.manager.QRCodeManager;
 import main.java.edu.pi.scanmap.manager.WifiStrengthManager;
 import main.java.edu.pi.scanmap.manager.WifiStrengthManager.WifiDetection;
+import main.java.edu.pi.scanmap.util.AwsCredentials;
 import main.java.edu.pi.scanmap.util.FixedWindow;
 import org.opencv.core.Core;
 import org.opencv.videoio.VideoCapture;
@@ -12,6 +14,7 @@ import javax.swing.JLabel;
 import javax.swing.ImageIcon;
 import java.awt.FlowLayout;
 import java.awt.Image;
+import java.time.Duration;
 import java.util.Date;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutorService;
@@ -19,6 +22,8 @@ import java.util.concurrent.Executors;
 import java.util.function.Consumer;
 
 public class ScanMapTool {
+
+    private static Duration DETECTION_WAIT_TIME = Duration.ofSeconds(1);
 
     static {
         System.loadLibrary(Core.NATIVE_LIBRARY_NAME);
@@ -28,6 +33,7 @@ public class ScanMapTool {
     private final FixedWindow<WifiDetection> wifiDetectionFixedWindow = new FixedWindow<>(WifiDetection.class, 10);
     private QRCodeManager qrCodeManager = new QRCodeManager();
     private WifiStrengthManager wifiStrengthManager = new WifiStrengthManager(threadPool);
+    private MessageManager messageManager;
     private static String lastDetectedQRCode = "None";
 
     public static void main(final String[] args) {
@@ -49,23 +55,43 @@ public class ScanMapTool {
             label.setIcon(icon);
             qrCode.setText(lastDetectedQRCode);
         };
-        final ScanMapTool scanMapTool = new ScanMapTool();
 
-        scanMapTool.execute(videoCapture, imageConsumer);
+        int errorCode = 0;
+        try {
+            final ScanMapTool scanMapTool = new ScanMapTool();
 
-        System.exit(0);
+            System.out.println("Starting execution ...");
+            scanMapTool.execute(videoCapture, imageConsumer);
+        } catch (Throwable t) {
+            t.printStackTrace();
+            errorCode = -1;
+        } finally {
+            System.exit(errorCode);
+        }
+    }
+
+    public ScanMapTool() throws Exception {
+        messageManager =  new MessageManager(AwsCredentials.create());
+        messageManager.publish(String.format("{\"event\":\"started\",\"timestamp\":%s}", System.currentTimeMillis()));
     }
 
     public void execute(final VideoCapture videoCapture, final Consumer<Image> imageConsumer) {
         threadPool.submit(new WifiStrengthDetectionTask());
 
         while (true) {
-            final String qrCode = qrCodeManager.detectQRCode(videoCapture, imageConsumer);
-            if (qrCode != null) {
-                lastDetectedQRCode = qrCode;
-                final WifiDetection lastWifiDetection = wifiDetectionFixedWindow.getItems().get(0);
-                System.out.println(String.format("Detected qrCode:'%s' with last WIFI detection at %s",
-                        qrCode, new Date(lastWifiDetection.getTimestamp())));
+            try {
+                final String qrCode = qrCodeManager.detectQRCode(videoCapture, imageConsumer);
+                if (qrCode != null) {
+                    lastDetectedQRCode = qrCode;
+                    final long detectionTimestamp = System.currentTimeMillis();
+                    Thread.sleep(DETECTION_WAIT_TIME.toMillis());
+                    final WifiDetection lastWifiDetection = wifiDetectionFixedWindow.getItems().get(0);
+                    final String qrCodeLocation = qrCode + ":" + lastWifiDetection;
+                    messageManager.publishData(new ScanDetectionMessage(qrCode, detectionTimestamp, lastWifiDetection));
+                    System.out.println("Detected qrCode: " + qrCodeLocation);
+                }
+            } catch (final Exception e) {
+                e.printStackTrace();
             }
         }
     }
@@ -86,6 +112,30 @@ public class ScanMapTool {
                     e.getMessage();
                 }
             }
+        }
+    }
+
+    public static class ScanDetectionMessage {
+        private final String qrCode;
+        private final long timestamp;
+        private final WifiDetection wifiDetection;
+
+        public ScanDetectionMessage(String qrCode, long timestamp, WifiDetection wifiDetection) {
+            this.qrCode = qrCode;
+            this.timestamp = timestamp;
+            this.wifiDetection = wifiDetection;
+        }
+
+        public String getQrCode() {
+            return qrCode;
+        }
+
+        public long getTimestamp() {
+            return timestamp;
+        }
+
+        public WifiDetection getWifiDetection() {
+            return wifiDetection;
         }
     }
 }

@@ -1,7 +1,5 @@
-#!/bin/bash
+#!/usr/bin/bash
 
 echo "Starting Scan Map Tool ..."
 
-java -version
-
-java -cp "/home/pi/Projects/ScanMap/lib/ScanMap.jar:/home/pi/opencv-4.6.0/build/bin/opencv-460.jar" -Djava.library.path="/home/pi/opencv-4.6.0/build/lib" edu.pi.scanmap.ScanMapTool
+java -cp "/home/pi/Projects/ScanMap/bin/ScanMap.jar:/home/pi/build/bin/opencv-460.jar:/home/pi/Projects/ScanMap/lib/*" -Djava.library.path="/home/pi/build/lib" edu.pi.scanmap.ScanMapTool

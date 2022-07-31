@@ -2,5 +2,8 @@
 .idea/
 *.iml
 
+# Dependencies
+lib/
+
 # Build Artifacts
 out/
