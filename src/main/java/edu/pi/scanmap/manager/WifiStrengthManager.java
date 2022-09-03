@@ -6,7 +6,6 @@ import java.io.InputStreamReader;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
 import java.util.stream.Stream;
 
 public class WifiStrengthManager {
@@ -78,8 +77,8 @@ public class WifiStrengthManager {
         }
 
         if (signal.endsWith("%")) {
-            final double signalPercent = Double.parseDouble(signal.substring(0, signal.length() - 1));
-            return new WifiStrength(networkName, address, signalPercent);
+            final double signalStrength = Double.parseDouble(signal.substring(0, signal.length() - 1)) / 100;
+            return new WifiStrength(networkName, address, signalStrength);
         }
 
         return null;
