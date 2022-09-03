@@ -5,6 +5,7 @@ import main.java.edu.pi.scanmap.manager.QRCodeManager;
 import main.java.edu.pi.scanmap.manager.WifiStrengthManager;
 import main.java.edu.pi.scanmap.manager.WifiStrengthManager.WifiDetection;
 import main.java.edu.pi.scanmap.util.AwsCredentials;
+import main.java.edu.pi.scanmap.util.ConfigHelper;
 import main.java.edu.pi.scanmap.util.FixedWindow;
 import org.opencv.core.Core;
 import org.opencv.videoio.VideoCapture;
@@ -29,7 +30,11 @@ public class ScanMapTool {
         System.loadLibrary(Core.NATIVE_LIBRARY_NAME);
     }
 
+    private static final String IOT_ENDPOINT =
+            ConfigHelper.getPropertyOrEnv("IOT_ENDPOINT",  "a131ws0b6gtght-ats.iot.us-east-1.amazonaws.com");
+
     private final ExecutorService threadPool = Executors.newFixedThreadPool(2);
+
     private final FixedWindow<WifiDetection> wifiDetectionFixedWindow = new FixedWindow<>(WifiDetection.class, 10);
     private QRCodeManager qrCodeManager = new QRCodeManager();
     private WifiStrengthManager wifiStrengthManager = new WifiStrengthManager(threadPool);
@@ -49,7 +54,7 @@ public class ScanMapTool {
         frame.setVisible(true);
         frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
 
-        final VideoCapture videoCapture = new VideoCapture(0);
+        final VideoCapture videoCapture = new VideoCapture((args.length ==1) ? Integer.parseInt(args[0]) : 0);
         final Consumer<Image> imageConsumer = image -> {
             ImageIcon icon = new ImageIcon(image);
             label.setIcon(icon);
@@ -71,7 +76,7 @@ public class ScanMapTool {
     }
 
     public ScanMapTool() throws Exception {
-        messageManager =  new MessageManager(AwsCredentials.create());
+        messageManager =  new MessageManager(IOT_ENDPOINT, AwsCredentials.create());
         messageManager.publish(String.format("{\"event\":\"started\",\"timestamp\":%s}", System.currentTimeMillis()));
     }
 

@@ -9,8 +9,8 @@ public class AwsCredentials {
     private final String secretAccessKey;
 
     public static AwsCredentials create() {
-        final String accessKeyId = getPropertyOrEnv(ACCESS_KEY_ID);
-        final String secretAccessKey = getPropertyOrEnv(SECRET_ACCESS_KEY);
+        final String accessKeyId = ConfigHelper.getPropertyOrEnv(ACCESS_KEY_ID);
+        final String secretAccessKey = ConfigHelper.getPropertyOrEnv(SECRET_ACCESS_KEY);
         //System.out.println(String.format("id=%s secret=%s", accessKeyId, secretAccessKey));
         return new AwsCredentials(accessKeyId, secretAccessKey);
     }
@@ -26,14 +26,5 @@ public class AwsCredentials {
 
     public String getSecretAccessKey() {
         return secretAccessKey;
-    }
-
-    private static String getPropertyOrEnv(final String key) {
-        final String value = System.getProperty(key);
-        if (value != null) {
-            return value;
-        }
-
-        return System.getenv(key);
     }
 }

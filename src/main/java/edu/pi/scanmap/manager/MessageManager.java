@@ -7,14 +7,13 @@ import main.java.edu.pi.scanmap.util.AwsCredentials;
 
 public class MessageManager {
 
-    private static final String clientEndpoint = "a131ws0b6gtght-ats.iot.us-east-1.amazonaws.com";   // use value returned by describe-endpoint --endpoint-type "iot:Data-ATS"
-    private static final String clientId = "ClientId-1";                              // replace with your own client ID. Use unique client IDs for concurrent connections.
+    private static final String clientId = "ClientId-1";   // replace with your own client ID. Use unique client IDs for concurrent connections.
     private static final String TOPIC = "dev/scan-map";
 
     private AWSIotMqttClient client;
     private ObjectMapper objectMapper = new ObjectMapper();
 
-    public MessageManager(final AwsCredentials awsCredentials) throws Exception {
+    public MessageManager(final String clientEndpoint, final AwsCredentials awsCredentials) throws Exception {
         client = new AWSIotMqttClient(clientEndpoint, clientId, awsCredentials.getAccessKeyId(),
                 awsCredentials.getSecretAccessKey());
 
