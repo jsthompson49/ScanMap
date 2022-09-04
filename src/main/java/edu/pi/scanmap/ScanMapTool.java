@@ -1,6 +1,9 @@
 package edu.pi.scanmap;
 
+import main.java.edu.pi.scanmap.manager.FileMessageManager;
+import main.java.edu.pi.scanmap.manager.IotMessageManager;
 import main.java.edu.pi.scanmap.manager.MessageManager;
+import main.java.edu.pi.scanmap.manager.MultipleMessageManager;
 import main.java.edu.pi.scanmap.manager.QRCodeManager;
 import main.java.edu.pi.scanmap.manager.WifiStrengthManager;
 import main.java.edu.pi.scanmap.manager.WifiStrengthManager.WifiDetection;
@@ -15,8 +18,12 @@ import javax.swing.JLabel;
 import javax.swing.ImageIcon;
 import java.awt.FlowLayout;
 import java.awt.Image;
+import java.io.File;
 import java.time.Duration;
+import java.time.Instant;
+import java.util.ArrayList;
 import java.util.Date;
+import java.util.List;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -76,8 +83,32 @@ public class ScanMapTool {
     }
 
     public ScanMapTool() throws Exception {
-        messageManager =  new MessageManager(IOT_ENDPOINT, AwsCredentials.create());
-        messageManager.publish(String.format("{\"event\":\"started\",\"timestamp\":%s}", System.currentTimeMillis()));
+        messageManager = createMessageManager();
+        messageManager.start(Instant.now());
+    }
+
+    private MessageManager createMessageManager() {
+        final List<MessageManager> managers = new ArrayList<>();
+
+        try {
+            final String baseDir = ConfigHelper.getPropertyOrEnv("SCANMAP_OUTPUT_DIR",
+                    ConfigHelper.getPropertyOrEnv("java.io.tmpdir"));
+            final FileMessageManager fileMessageManager = new FileMessageManager(new File(baseDir), Instant.now());
+            managers.add(fileMessageManager);
+        } catch (Exception e) {
+            System.err.println("Exception creating FileMessageManager");
+            e.printStackTrace();
+        }
+
+        try {
+            final IotMessageManager iotMessageManager = new IotMessageManager(IOT_ENDPOINT, AwsCredentials.create());
+            managers.add(iotMessageManager);
+        } catch (Exception e) {
+            System.err.println("Exception creating IotMessageManager");
+            e.printStackTrace();
+        }
+
+        return new MultipleMessageManager(managers);
     }
 
     public void execute(final VideoCapture videoCapture, final Consumer<Image> imageConsumer) {
